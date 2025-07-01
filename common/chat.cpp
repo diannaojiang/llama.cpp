@@ -133,6 +133,7 @@ struct common_chat_templates {
 
 struct templates_params {
     json messages;
+    std::string model;
     json tools;
     common_chat_tool_choice tool_choice;
     json json_schema;
@@ -1510,6 +1511,7 @@ static common_chat_params common_chat_params_init_hermes_2_pro(const common_chat
 
     json extra_context = json {
         {"enable_thinking", inputs.enable_thinking},
+        {"model", inputs.model},
     };
     extra_context.update(inputs.extra_context);
 
@@ -1728,6 +1730,7 @@ static common_chat_params common_chat_templates_apply_jinja(
     const auto & src = tmpl.source();
     const auto & caps = tmpl.original_caps();
     params.messages = common_chat_msgs_to_json_oaicompat<json>(inputs.messages, /* concat_text= */ !tmpl.original_caps().requires_typed_content);
+    params.model = inputs.model;
     params.add_generation_prompt = inputs.add_generation_prompt;
     params.tool_choice = inputs.tool_choice;
     params.enable_thinking = inputs.enable_thinking;

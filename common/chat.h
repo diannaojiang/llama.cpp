@@ -115,6 +115,7 @@ enum common_chat_format {
 
 struct common_chat_templates_inputs {
     std::vector<common_chat_msg> messages;
+    std::string model;
     std::string grammar;
     std::string json_schema;
     bool add_generation_prompt = true;
