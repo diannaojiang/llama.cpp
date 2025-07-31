@@ -7,7 +7,7 @@ Set of LLM REST APIs and a simple web front end to interact with llama.cpp.
 **Features:**
  * LLM inference of F16 and quantized models on GPU and CPU
  * [OpenAI API](https://github.com/openai/openai-openapi) compatible chat completions and embeddings routes
- * Reranking endoint (https://github.com/ggml-org/llama.cpp/pull/9510)
+ * Reranking endpoint (https://github.com/ggml-org/llama.cpp/pull/9510)
  * Parallel decoding with multi-user support
  * Continuous batching
  * Multimodal ([documentation](../../docs/multimodal.md)) / with OpenAI-compatible API support
@@ -575,6 +575,8 @@ These words will not be included in the completion, so make sure to add them to 
 
 `add_special`: (Optional) Boolean indicating if special tokens, i.e. `BOS`, should be inserted.  Default: `false`
 
+`parse_special`: (Optional) Boolean indicating if special tokens should be tokenized. When `false` special tokens are treated as plaintext.  Default: `true`
+
 `with_pieces`: (Optional) Boolean indicating whether to return token pieces along with IDs.  Default: `false`
 
 **Response:**
@@ -641,6 +643,15 @@ The same as [the embedding example](../embedding) does.
 `content`: Set the text to process.
 
 `image_data`: An array of objects to hold base64-encoded image `data` and its `id`s to be reference in `content`. You can determine the place of the image in the content as in the following: `Image: [img-21].\nCaption: This is a picture of a house`. In this case, `[img-21]` will be replaced by the embeddings of the image with id `21` in the following `image_data` array: `{..., "image_data": [{"data": "<BASE64_STRING>", "id": 21}]}`. Use `image_data` only with multimodal models, e.g., LLaVA.
+
+`embd_normalize`: Normalization for pooled embeddings. Can be one of the following values:
+```
+  -1: No normalization
+   0: Max absolute
+   1: Taxicab
+   2: Euclidean/L2
+  >2: P-Norm
+```
 
 ### POST `/reranking`: Rerank documents according to a given query
 
