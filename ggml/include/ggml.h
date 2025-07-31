@@ -519,6 +519,9 @@ extern "C" {
         GGML_OP_OPT_STEP_ADAMW,
 
         GGML_OP_COUNT,
+
+        GGML_OP_MUL_MAT_ADDORMUL,
+        GGML_OP_RMS_NORM_MUL,
     };
 
     enum ggml_unary_op {

@@ -108,9 +108,9 @@ function(ggml_add_cpu_backend_variant_impl tag_name)
                     ERROR_VARIABLE ARM_MCPU
                     RESULT_VARIABLE ARM_MCPU_RESULT
                 )
-                if (NOT ARM_MCPU_RESULT)
-                    string(REGEX MATCH "-mcpu=[^ ']+" ARM_MCPU_FLAG "${ARM_MCPU}")
-                endif()
+                #if (NOT ARM_MCPU_RESULT)
+                #    string(REGEX MATCH "-mcpu=[^ ']+" ARM_MCPU_FLAG "${ARM_MCPU}")
+                #endif()
                 if ("${ARM_MCPU_FLAG}" STREQUAL "")
                     set(ARM_MCPU_FLAG -mcpu=native)
                     message(STATUS "ARM -mcpu not found, -mcpu=native will be used")

@@ -41,11 +41,11 @@
 #define CUDART_HMAX   11070 // CUDA 11.7, min. ver. for which __hmax and __hmax2 are known to work (may be higher than needed)
 #define CUDART_HMASK  12000 // CUDA 12.0, min. ver. for half2 -> uint mask comparisons
 
-#define GGML_CUDA_CC_PASCAL          600
-#define GGML_CUDA_CC_DP4A            610 // minimum compute capability for __dp4a, an intrinsic for byte-wise dot products
-#define GGML_CUDA_CC_VOLTA           700
-#define GGML_CUDA_CC_TURING          750
-#define GGML_CUDA_CC_AMPERE          800
+#define GGML_CUDA_CC_PASCAL          300
+#define GGML_CUDA_CC_DP4A            300 // minimum compute capability for __dp4a, an intrinsic for byte-wise dot products
+#define GGML_CUDA_CC_VOLTA           300
+#define GGML_CUDA_CC_TURING          300
+#define GGML_CUDA_CC_AMPERE          300
 #define GGML_CUDA_CC_ADA_LOVELACE    890
 #define GGML_CUDA_CC_OFFSET_AMD      0x1000000
 #define GGML_CUDA_CC_OFFSET_MTHREADS 0x0100000
@@ -136,7 +136,7 @@ static int ggml_cuda_highest_compiled_arch(const int arch) {
 
 #define GGML_CUDA_MAX_STREAMS 8
 
-[[noreturn]]
+//[[noreturn]]
 void ggml_cuda_error(const char * stmt, const char * func, const char * file, int line, const char * msg);
 
 #define CUDA_CHECK_GEN(err, success, error_fn)                                      \
@@ -216,15 +216,15 @@ typedef float2 dfloat2;
 #endif // defined(GGML_HIP_ROCWMMA_FATTN) && (defined(CDNA) || defined(RDNA3) || defined(RDNA4))
 
 #if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_TURING
-#define NEW_MMA_AVAILABLE
+#define NEW_MMA_AVAILABLE222
 #endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_TURING
 
 #if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_AMPERE
-#define CP_ASYNC_AVAILABLE
+#define CP_ASYNC_AVAILABLE222
 #endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_AMPERE
 
 #if !defined(GGML_CUDA_NO_FA) && !(defined(GGML_USE_MUSA) && GGML_CUDA_MUSA_ARCH_IS_QY1)
-#define FLASH_ATTN_AVAILABLE
+#define FLASH_ATTN_AVAILABLE222
 #endif // !defined(GGML_CUDA_NO_FA) && !(defined(GGML_USE_MUSA) && GGML_CUDA_MUSA_ARCH_IS_QY1)
 
 static bool fp16_available(const int cc) {
@@ -269,11 +269,11 @@ static constexpr __device__ int ggml_cuda_get_physical_warp_size() {
 #if defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
     return __AMDGCN_WAVEFRONT_SIZE;
 #else
-    return 32;
+    return 64;
 #endif // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
 }
 
-[[noreturn]]
+//[[noreturn]]
 static __device__ void no_device_code(
     const char * file_name, const int line, const char * function_name, const int arch, const char * arch_list) {
 
@@ -285,7 +285,8 @@ static __device__ void no_device_code(
     printf("%s:%d: ERROR: CUDA kernel %s has no device code compatible with CUDA arch %d. ggml-cuda.cu was compiled for: %s\n",
            file_name, line, function_name, arch, arch_list);
 #endif // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
-    __trap();
+    //__trap();
+    assert(false);
 
     GGML_UNUSED(no_device_code); // suppress unused function warning
 
@@ -303,7 +304,11 @@ static __device__ void no_device_code(
 template<int width = WARP_SIZE>
 static __device__ __forceinline__ int warp_reduce_sum(int x) {
 #if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_AMPERE
-    return __reduce_add_sync(0xffffffff, x);
+    //return __reduce_add_sync(0xffffffff, x);
+    for (int offset = width/2; offset > 0; offset >>= 1) {
+        x += __shfl_xor_sync(0xffffffff, x, offset, width);
+    }
+    return x;
 #else
 #pragma unroll
     for (int offset = width/2; offset > 0; offset >>= 1) {
@@ -616,6 +621,7 @@ struct ggml_cuda_device_info {
     int device_count;
 
     struct cuda_device_info {
+        size_t gmem;               // gmem size
         int     cc;                 // compute capability
         int     nsm;                // number of streaming multiprocessors
         size_t  smpb;               // max. shared memory per block
@@ -697,7 +703,7 @@ struct ggml_tensor_extra_gpu {
 
 
 #if (defined(GGML_CUDA_USE_GRAPHS) || defined(GGML_HIP_GRAPHS))
-#define USE_CUDA_GRAPH
+#define USE_CUDA_GRAPH222
 #endif
 
 struct ggml_graph_node_properties {
@@ -811,3 +817,15 @@ struct ggml_backend_cuda_context {
         return pool(device);
     }
 };
+
+__device__ __forceinline__ unsigned int __vcmpeq4(unsigned int a, unsigned int b) {
+    unsigned int c;
+    printf("no this __vcmpeq4 fuction on corex!\n");
+    return c;
+}
+
+static __device__ __forceinline__ unsigned int __vcmpne4(unsigned int a, unsigned int b) {
+    unsigned int c;
+    printf("no this __vcmpne4 fuction on corex!\n");
+    return c;
+}

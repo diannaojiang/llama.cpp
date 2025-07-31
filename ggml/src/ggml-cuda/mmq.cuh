@@ -100,27 +100,29 @@ static int get_mmq_x_max_host(const int cc) {
 }
 
 static constexpr __device__ int get_mmq_x_max_device() {
-#ifdef NEW_MMA_AVAILABLE
     return 128;
-#else // NEW_MMA_AVAILABLE
 
-#if defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
-    return 128;
-#else // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
+// #ifdef NEW_MMA_AVAILABLE
+//     return 128;
+// #else // NEW_MMA_AVAILABLE
 
-#if __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
-#ifdef GGML_CUDA_FORCE_MMQ
-    return 128;
-#else // GGML_CUDA_FORCE_MMQ
-    return MMQ_DP4A_MAX_BATCH_SIZE;
-#endif // GGML_CUDA_FORCE_MMQ
-#else // __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
+// #if defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
+//     return 128;
+// #else // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
 
-    return 64;
-#endif // __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
+// #if __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
+// #ifdef GGML_CUDA_FORCE_MMQ
+//     return 128;
+// #else // GGML_CUDA_FORCE_MMQ
+//     return MMQ_DP4A_MAX_BATCH_SIZE;
+// #endif // GGML_CUDA_FORCE_MMQ
+// #else // __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
 
-#endif // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
-#endif // NEW_MMA_AVAILABLE
+//     return 64;
+// #endif // __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
+
+// #endif // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
+// #endif // NEW_MMA_AVAILABLE
 }
 
 static int get_mmq_y_host(const int cc) {

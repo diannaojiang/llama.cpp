@@ -107,7 +107,7 @@ static __global__ void group_norm_f32(const float * x, float * dst, const int gr
 template <int block_size>
 static __global__ void rms_norm_f32(
         const float * x, float * dst, const int ncols, const int64_t stride_row, const int64_t stride_channel,
-        const int64_t stride_sample, const float eps) {
+        const int64_t stride_sample, const float eps, const float *nextsrc1) {
     const int nrows     = gridDim.x;
     const int nchannels = gridDim.y;
 
@@ -145,7 +145,8 @@ static __global__ void rms_norm_f32(
     const float scale = rsqrtf(mean + eps);
 
     for (int col = tid; col < ncols; col += block_size) {
-        dst[col] = scale * x[col];
+        float tmp = scale * x[col];
+        dst[col] = nextsrc1 == nullptr? tmp: tmp * nextsrc1[((sample*nchannels + channel)*nrows + row) + col];
     }
 }
 
@@ -306,14 +307,21 @@ static void group_norm_f32_cuda(
 
 static void rms_norm_f32_cuda(
         const float * x, float * dst, const int ncols, const int nrows, const int nchannels, const int nsamples,
-        const int64_t stride_row, const int64_t stride_channel, const int64_t stride_sample, const float eps, cudaStream_t stream) {
+        const int64_t stride_row, const int64_t stride_channel, const int64_t stride_sample, const float eps, cudaStream_t stream, ggml_tensor * nextdst) {
     const dim3 blocks_num(nrows, nchannels, nsamples);
+
+    float *nextsrc1 = nullptr;
+    if(nextdst)
+    {
+        nextsrc1 = (float *) nextdst->src[1]->data;
+    }
+
     if (ncols < 1024) {
         const dim3 block_dims(WARP_SIZE, 1, 1);
-        rms_norm_f32<WARP_SIZE><<<blocks_num, block_dims, 0, stream>>>(x, dst, ncols, stride_row, stride_channel, stride_sample, eps);
+        rms_norm_f32<WARP_SIZE><<<blocks_num, block_dims, 0, stream>>>(x, dst, ncols, stride_row, stride_channel, stride_sample, eps, nextsrc1);
     } else {
         const dim3 block_dims(1024, 1, 1);
-        rms_norm_f32<1024><<<blocks_num, block_dims, 0, stream>>>(x, dst, ncols, stride_row, stride_channel, stride_sample, eps);
+        rms_norm_f32<1024><<<blocks_num, block_dims, 0, stream>>>(x, dst, ncols, stride_row, stride_channel, stride_sample, eps, nextsrc1);
     }
 }
 
@@ -383,7 +391,7 @@ void ggml_cuda_op_group_norm(ggml_backend_cuda_context & ctx, ggml_tensor * dst)
     group_norm_f32_cuda(src0_d, dst_d, num_groups * src0->ne[3], eps, group_size, ggml_nelements(src0), stream);
 }
 
-void ggml_cuda_op_rms_norm(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
+void ggml_cuda_op_rms_norm(ggml_backend_cuda_context & ctx, ggml_tensor * dst, ggml_tensor * nextdst) {
     const ggml_tensor * src0 = dst->src[0];
     const float * src0_d = (const float *) src0->data;
     float * dst_d = (float *) dst->data;
@@ -404,7 +412,7 @@ void ggml_cuda_op_rms_norm(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
     const int64_t s02 = nb02 / ts0;
     const int64_t s03 = nb03 / ts0;
 
-    rms_norm_f32_cuda(src0_d, dst_d, ne00, ne01, ne02, ne03, s01, s02, s03, eps, stream);
+    rms_norm_f32_cuda(src0_d, dst_d, ne00, ne01, ne02, ne03, s01, s02, s03, eps, stream, nextdst);
 }
 
 void ggml_cuda_op_rms_norm_back(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {

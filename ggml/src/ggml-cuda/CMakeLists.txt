@@ -101,6 +101,9 @@ if (CUDAToolkit_FOUND)
     set(CUDA_CXX_FLAGS "")
 
     set(CUDA_FLAGS -use_fast_math)
+    list(APPEND CUDA_FLAGS -std=c++17)
+    #list(APPEND CUDA_FLAGS -std=c++17 -gdwarf-4)
+
 
     if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.8")
         # Options are:

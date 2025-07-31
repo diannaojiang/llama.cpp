@@ -40,7 +40,7 @@ if (WIN32)
 endif()
 
 option(BUILD_SHARED_LIBS "ggml: build shared libraries" ${BUILD_SHARED_LIBS_DEFAULT})
-option(GGML_BACKEND_DL   "ggml: build backends as dynamic libraries (requires BUILD_SHARED_LIBS)" OFF)
+option(GGML_BACKEND_DL   "ggml: build backends as dynamic libraries (requires BUILD_SHARED_LIBS)" ON)
 
 #
 # option list
@@ -58,12 +58,7 @@ else()
     set(GGML_BLAS_VENDOR_DEFAULT "Generic")
 endif()
 
-if (CMAKE_CROSSCOMPILING OR DEFINED ENV{SOURCE_DATE_EPOCH})
-    message(STATUS "Setting GGML_NATIVE_DEFAULT to OFF")
-    set(GGML_NATIVE_DEFAULT OFF)
-else()
-    set(GGML_NATIVE_DEFAULT ON)
-endif()
+set(GGML_NATIVE_DEFAULT OFF)
 
 # defaults
 if (NOT GGML_LLAMAFILE_DEFAULT)

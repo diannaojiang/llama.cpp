@@ -276,7 +276,7 @@ struct llama_mmap::impl {
     impl(struct llama_file * file, size_t prefetch, bool numa) {
         size = file->size();
         int fd = file->file_id();
-        int flags = MAP_SHARED;
+        int flags = MAP_PRIVATE;
         if (numa) { prefetch = 0; }
 #ifdef __linux__
         if (posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL)) {
@@ -285,7 +285,7 @@ struct llama_mmap::impl {
         }
         if (prefetch) { flags |= MAP_POPULATE; }
 #endif
-        addr = mmap(NULL, file->size(), PROT_READ, flags, fd, 0);
+        addr = mmap(NULL, file->size(), PROT_WRITE, flags, fd, 0);
         if (addr == MAP_FAILED) {
             throw std::runtime_error(format("mmap failed: %s", strerror(errno)));
         }

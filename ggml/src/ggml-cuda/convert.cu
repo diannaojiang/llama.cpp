@@ -126,57 +126,66 @@ static __global__ void dequantize_block_q4_1(const void * __restrict__ vx, dst_t
 
 //================================== k-quants
 
-template<typename dst_t>
+template<typename dst_t, int one_blk_times>
 static __global__ void dequantize_block_q2_K(const void * __restrict__ vx, dst_t * __restrict__ yy) {
-
-    const int64_t i   = blockIdx.x;
     const block_q2_K * x = (const block_q2_K *) vx;
 
-    const int64_t tid = threadIdx.x;
-    const int64_t n   = tid/32;
-    const int64_t l   = tid - 32*n;
-    const int64_t is  = 8*n + l/16;
+    const int64_t blkidx   = blockIdx.x;
 
-    const uint8_t q = x[i].qs[32*n + l];
-    dst_t * y = yy + i*QK_K + 128*n;
+    for (size_t j = 0; j < one_blk_times; j++)
+    {
+        const int i = blkidx * one_blk_times + j;
 
-    float dall = __low2half(x[i].dm);
-    float dmin = __high2half(x[i].dm);
-    y[l+ 0] = dall * (x[i].scales[is+0] & 0xF) * ((q >> 0) & 3) - dmin * (x[i].scales[is+0] >> 4);
-    y[l+32] = dall * (x[i].scales[is+2] & 0xF) * ((q >> 2) & 3) - dmin * (x[i].scales[is+2] >> 4);
-    y[l+64] = dall * (x[i].scales[is+4] & 0xF) * ((q >> 4) & 3) - dmin * (x[i].scales[is+4] >> 4);
-    y[l+96] = dall * (x[i].scales[is+6] & 0xF) * ((q >> 6) & 3) - dmin * (x[i].scales[is+6] >> 4);
+        const int64_t tid = threadIdx.x;
+        const int64_t n   = tid / 32;
+        const int64_t l   = tid - 32 * n;
+        const int64_t is  = 8 * n + l / 16;
+
+        const uint8_t q = x[i].qs[32 * n + l];
+        dst_t *       y = yy + i * QK_K + 128 * n;
+
+        float dall = __low2half(x[i].dm);
+        float dmin = __high2half(x[i].dm);
+        y[l + 0]   = dall * (x[i].scales[is + 0] & 0xF) * ((q >> 0) & 3) - dmin * (x[i].scales[is + 0] >> 4);
+        y[l + 32]  = dall * (x[i].scales[is + 2] & 0xF) * ((q >> 2) & 3) - dmin * (x[i].scales[is + 2] >> 4);
+        y[l + 64]  = dall * (x[i].scales[is + 4] & 0xF) * ((q >> 4) & 3) - dmin * (x[i].scales[is + 4] >> 4);
+        y[l + 96]  = dall * (x[i].scales[is + 6] & 0xF) * ((q >> 6) & 3) - dmin * (x[i].scales[is + 6] >> 4);
+    }
 }
 
-template<typename dst_t>
+template<typename dst_t, int one_blk_times>
 static __global__ void dequantize_block_q3_K(const void * __restrict__ vx, dst_t * __restrict__ yy) {
-
-    const int64_t i = blockIdx.x;
     const block_q3_K * x = (const block_q3_K *) vx;
 
-    const int64_t r = threadIdx.x/4;
-    const int64_t tid = r/2;
-    const int64_t is0 = r%2;
-    const int64_t l0 = 16*is0 + 4*(threadIdx.x%4);
-    const int64_t n = tid / 4;
-    const int64_t j = tid - 4*n;
+    const int64_t blkidx = blockIdx.x;
+    for (size_t jj = 0; jj < one_blk_times; jj++)
+    {
+        const int i = blkidx * one_blk_times + jj;
 
-    uint8_t m = 1 << (4*n + j);
-    int64_t is = 8*n + 2*j + is0;
-    int shift = 2*j;
+        const int64_t r = threadIdx.x/4;
+        const int64_t tid = r/2;
+        const int64_t is0 = r%2;
+        const int64_t l0 = 16*is0 + 4*(threadIdx.x%4);
+        const int64_t n = tid / 4;
+        const int64_t j = tid - 4*n;
 
-    int8_t us = is <  4 ? (x[i].scales[is-0] & 0xF) | (((x[i].scales[is+8] >> 0) & 3) << 4) :
-                is <  8 ? (x[i].scales[is-0] & 0xF) | (((x[i].scales[is+4] >> 2) & 3) << 4) :
-                is < 12 ? (x[i].scales[is-8] >>  4) | (((x[i].scales[is+0] >> 4) & 3) << 4) :
-                          (x[i].scales[is-8] >>  4) | (((x[i].scales[is-4] >> 6) & 3) << 4);
-    float d_all = x[i].d;
-    float dl = d_all * (us - 32);
+        uint8_t m = 1 << (4*n + j);
+        int64_t is = 8*n + 2*j + is0;
+        int shift = 2*j;
 
-    dst_t * y = yy + i*QK_K + 128*n + 32*j;
-    const uint8_t * q = x[i].qs + 32*n;
-    const uint8_t * hm = x[i].hmask;
+        int8_t us = is <  4 ? (x[i].scales[is-0] & 0xF) | (((x[i].scales[is+8] >> 0) & 3) << 4) :
+                    is <  8 ? (x[i].scales[is-0] & 0xF) | (((x[i].scales[is+4] >> 2) & 3) << 4) :
+                    is < 12 ? (x[i].scales[is-8] >>  4) | (((x[i].scales[is+0] >> 4) & 3) << 4) :
+                            (x[i].scales[is-8] >>  4) | (((x[i].scales[is-4] >> 6) & 3) << 4);
+        float d_all = x[i].d;
+        float dl = d_all * (us - 32);
 
-    for (int l = l0; l < l0+4; ++l) y[l] = dl * ((int8_t)((q[l] >> shift) & 3) - ((hm[l] & m) ? 0 : 4));
+        dst_t * y = yy + i*QK_K + 128*n + 32*j;
+        const uint8_t * q = x[i].qs + 32*n;
+        const uint8_t * hm = x[i].hmask;
+
+        for (int l = l0; l < l0+4; ++l) y[l] = dl * ((int8_t)((q[l] >> shift) & 3) - ((hm[l] & m) ? 0 : 4));
+    }
 }
 
 static inline __device__ void get_scale_min_k4(int j, const uint8_t * q, uint8_t & d, uint8_t & m) {
@@ -188,34 +197,39 @@ static inline __device__ void get_scale_min_k4(int j, const uint8_t * q, uint8_t
     }
 }
 
-template<typename dst_t>
+template<typename dst_t, int one_blk_times>
 static __global__ void dequantize_block_q4_K(const void * __restrict__ vx, dst_t * __restrict__ yy) {
     const block_q4_K * x = (const block_q4_K *) vx;
 
-    const int64_t i = blockIdx.x;
+    const int64_t blkidx = blockIdx.x;
 
-    // assume 32 threads
-    const int64_t tid = threadIdx.x;
-    const int64_t il  = tid/8;
-    const int64_t ir  = tid%8;
-    const int64_t is  = 2*il;
-    const int64_t n   = 4;
+    for (size_t jj = 0; jj < one_blk_times; jj++)
+    {
+        const int i = blkidx * one_blk_times + jj;
 
-    dst_t * y = yy + i*QK_K + 64*il + n*ir;
+        // assume 32 threads
+        const int64_t tid = threadIdx.x;
+        const int64_t il  = tid/8;
+        const int64_t ir  = tid%8;
+        const int64_t is  = 2*il;
+        const int64_t n   = 4;
 
-    const float dall = __low2half(x[i].dm);
-    const float dmin = __high2half(x[i].dm);
+        dst_t * y = yy + i*QK_K + 64*il + n*ir;
 
-    const uint8_t * q = x[i].qs + 32*il + n*ir;
+        const float dall = __low2half(x[i].dm);
+        const float dmin = __high2half(x[i].dm);
 
-    uint8_t sc, m;
-    get_scale_min_k4(is + 0, x[i].scales, sc, m);
-    const float d1 = dall * sc; const float m1 = dmin * m;
-    get_scale_min_k4(is + 1, x[i].scales, sc, m);
-    const float d2 = dall * sc; const float m2 = dmin * m;
-    for (int l = 0; l < n; ++l) {
-        y[l + 0] = d1 * (q[l] & 0xF) - m1;
-        y[l +32] = d2 * (q[l] >>  4) - m2;
+        const uint8_t * q = x[i].qs + 32*il + n*ir;
+
+        uint8_t sc, m;
+        get_scale_min_k4(is + 0, x[i].scales, sc, m);
+        const float d1 = dall * sc; const float m1 = dmin * m;
+        get_scale_min_k4(is + 1, x[i].scales, sc, m);
+        const float d2 = dall * sc; const float m2 = dmin * m;
+        for (int l = 0; l < n; ++l) {
+            y[l + 0] = d1 * (q[l] & 0xF) - m1;
+            y[l +32] = d2 * (q[l] >>  4) - m2;
+        }
     }
 }
 
@@ -253,30 +267,35 @@ static __global__ void dequantize_block_q5_K(const void * __restrict__ vx, dst_t
     y[33] = d2 * ((ql[ 1] >>  4) + (qh[ 1] & hm ? 16 : 0)) - m2;
 }
 
-template<typename dst_t>
+template<typename dst_t, int one_blk_times>
 static __global__ void dequantize_block_q6_K(const void * __restrict__ vx, dst_t * __restrict__ yy) {
     const block_q6_K * x = (const block_q6_K *) vx;
 
-    const int64_t i = blockIdx.x;
+    const int64_t blkidx = blockIdx.x;
 
-    // assume 64 threads - this is very slightly better than the one below
-    const int64_t tid = threadIdx.x;
-    const int64_t ip  = tid/32;   // ip is 0 or 1
-    const int64_t il  = tid - 32*ip; // 0...32
-    const int64_t is  = 8*ip + il/16;
+    for (size_t jj = 0; jj < one_blk_times; jj++)
+    {
+        const int i = blkidx * one_blk_times + jj;
 
-    dst_t * y = yy + i*QK_K + 128*ip + il;
+        // assume 64 threads - this is very slightly better than the one below
+        const int64_t tid = threadIdx.x;
+        const int64_t ip  = tid/32;   // ip is 0 or 1
+        const int64_t il  = tid - 32*ip; // 0...32
+        const int64_t is  = 8*ip + il/16;
 
-    const float d = x[i].d;
+        dst_t * y = yy + i*QK_K + 128*ip + il;
 
-    const uint8_t * ql = x[i].ql + 64*ip + il;
-    const uint8_t   qh = x[i].qh[32*ip + il];
-    const int8_t  * sc = x[i].scales + is;
+        const float d = x[i].d;
 
-    y[ 0] = d * sc[0] * ((int8_t)((ql[ 0] & 0xF) | (((qh >> 0) & 3) << 4)) - 32);
-    y[32] = d * sc[2] * ((int8_t)((ql[32] & 0xF) | (((qh >> 2) & 3) << 4)) - 32);
-    y[64] = d * sc[4] * ((int8_t)((ql[ 0]  >> 4) | (((qh >> 4) & 3) << 4)) - 32);
-    y[96] = d * sc[6] * ((int8_t)((ql[32]  >> 4) | (((qh >> 6) & 3) << 4)) - 32);
+        const uint8_t * ql = x[i].ql + 64*ip + il;
+        const uint8_t   qh = x[i].qh[32*ip + il];
+        const int8_t  * sc = x[i].scales + is;
+
+        y[ 0] = d * sc[0] * ((int8_t)((ql[ 0] & 0xF) | (((qh >> 0) & 3) << 4)) - 32);
+        y[32] = d * sc[2] * ((int8_t)((ql[32] & 0xF) | (((qh >> 2) & 3) << 4)) - 32);
+        y[64] = d * sc[4] * ((int8_t)((ql[ 0]  >> 4) | (((qh >> 4) & 3) << 4)) - 32);
+        y[96] = d * sc[6] * ((int8_t)((ql[32]  >> 4) | (((qh >> 6) & 3) << 4)) - 32);
+    }
 }
 
 template<typename dst_t>
@@ -475,14 +494,18 @@ static void dequantize_block_q8_0_f16_cuda(const void * __restrict__ vx, half * 
 
 template<typename dst_t>
 static void dequantize_row_q2_K_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
-    const int nb = k / QK_K;
-    dequantize_block_q2_K<<<nb, 64, 0, stream>>>(vx, y);
+    const static int oneblktimes = 4;
+    const int nb = k / QK_K / oneblktimes;
+    assert(k / QK_K % oneblktimes == 0);
+    dequantize_block_q2_K<dst_t, oneblktimes><<<nb, 64, 0, stream>>>(vx, y);
 }
 
 template<typename dst_t>
 static void dequantize_row_q3_K_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
-    const int nb = k / QK_K;
-    dequantize_block_q3_K<<<nb, 64, 0, stream>>>(vx, y);
+    const static int oneblktimes = 4;
+    const int nb = k / QK_K / oneblktimes;
+    assert(k / QK_K % oneblktimes == 0);
+    dequantize_block_q3_K<dst_t, oneblktimes><<<nb, 64, 0, stream>>>(vx, y);
 }
 
 template<typename dst_t>
@@ -501,8 +524,10 @@ static void dequantize_row_q4_1_cuda(const void * vx, dst_t * y, const int64_t k
 
 template<typename dst_t>
 static void dequantize_row_q4_K_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
-    const int nb = k / QK_K;
-    dequantize_block_q4_K<<<nb, 32, 0, stream>>>(vx, y);
+    const static int oneblktimes = 4;
+    const int nb = k / QK_K / oneblktimes;
+    assert(k / QK_K % oneblktimes == 0);
+    dequantize_block_q4_K<dst_t, oneblktimes><<<nb, 32, 0, stream>>>(vx, y);
 }
 
 template<typename dst_t>
@@ -513,8 +538,10 @@ static void dequantize_row_q5_K_cuda(const void * vx, dst_t * y, const int64_t k
 
 template<typename dst_t>
 static void dequantize_row_q6_K_cuda(const void * vx, dst_t * y, const int64_t k, cudaStream_t stream) {
-    const int nb = k / QK_K;
-    dequantize_block_q6_K<<<nb, 64, 0, stream>>>(vx, y);
+    const static int oneblktimes = 4;
+    const int nb = k / QK_K / oneblktimes;
+    assert(k / QK_K % oneblktimes == 0);
+    dequantize_block_q6_K<dst_t, oneblktimes><<<nb, 64, 0, stream>>>(vx, y);
 }
 
 template<typename dst_t>
